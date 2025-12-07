@@ -1,0 +1,35 @@
+# Core Framework
+fastapi==0.115.0
+uvicorn[standard]==0.30.0
+websockets==13.1
+
+# AI/ML and LangChain
+langchain==0.3.7
+langchain-core==0.3.15
+langchain-openai==0.2.3
+langgraph==0.2.45
+langgraph-checkpoint==2.0.2
+
+# MCP (Model Context Protocol)
+mcp==1.1.2
+fastmcp==0.6.0
+
+# HTTP Client
+requests==2.32.3
+urllib3==2.2.3
+
+# Template Engine
+jinja2==3.1.4
+
+# Data Validation
+pydantic==2.9.2
+
+# Environment Variables
+python-dotenv==1.0.1
+
+# Development Tools (Optional)
+# pytest==8.3.3
+# pytest-asyncio==0.24.0
+# black==24.8.0
+# ruff==0.6.9
+

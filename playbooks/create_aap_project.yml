@@ -1,0 +1,50 @@
+---
+
+- name: Create Project in AAP
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  
+  vars:
+    # Controller connection details
+    controller_hostname: "https://192.168.122.20"
+    controller_oauthtoken: "EIFnMuewWUVded037eBSNuX4lJlUBX"
+    controller_validate_certs: false
+
+    # Project details
+    project_name: "My Ansible Project"
+    project_description: "Project for Ansible playbooks"
+    project_organization: "Default"
+    project_scm_type: "git"  # Options: git, svn, insights, archive, manual
+    project_scm_url: "https://github.com/ansible/ansible-tower-samples.git"
+    project_scm_branch: "master"  # Optional: specific branch, tag, or commit
+    project_scm_credential: ""  # Optional: credential name for private repos
+    project_scm_update_on_launch: true  # Update project before running job
+    project_scm_delete_on_update: false  # Delete repo before update
+    project_scm_clean: false  # Discard local changes before update
+    
+  tasks:
+    - name: Create project in AAP
+      ansible.controller.project:
+        controller_host: "{{ controller_hostname }}"
+        controller_oauthtoken: "{{ controller_oauthtoken }}"
+        validate_certs: "{{ controller_validate_certs }}"
+        name: "{{ project_name }}"
+        description: "{{ (project_description | default('') | length > 0) | ternary(project_description, omit) }}"
+        organization: "{{ (project_organization | default('') | length > 0) | ternary(project_organization, omit) }}"
+        scm_type: "{{ project_scm_type }}"
+        scm_url: "{{ (project_scm_url | default('') | length > 0) | ternary(project_scm_url, omit) }}"
+        scm_branch: "{{ (project_scm_branch | default('') | length > 0) | ternary(project_scm_branch, omit) }}"
+        scm_credential: "{{ (project_scm_credential | default('') | length > 0) | ternary(project_scm_credential, omit) }}"
+        scm_update_on_launch: "{{ project_scm_update_on_launch | default(false) }}"
+        scm_delete_on_update: "{{ project_scm_delete_on_update | default(false) }}"
+        scm_clean: "{{ project_scm_clean | default(false) }}"
+        state: present
+      register: project_result
+      no_log: false  # Set to true to hide sensitive data in logs
+    
+    - name: Confirm project was created
+      debug:
+        msg: "Project '{{ project_name }}' has been successfully created/updated!"
+      when: project_result is changed or project_result is succeeded
+

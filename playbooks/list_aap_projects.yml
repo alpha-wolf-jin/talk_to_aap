@@ -1,0 +1,39 @@
+---
+
+- name: List all AAP Projects
+  hosts: localhost
+  gather_facts: false
+  vars:
+    # Connection details (best practice: store these in Ansible Vault)
+    controller_hostname: "192.168.122.20"
+    controller_oauthtoken: "EIFnMuewWUVded037eBSNuX4lJlUBX"
+    controller_validate_certs: false
+
+  tasks:
+    - name: Retrieve all projects via API
+      ansible.builtin.set_fact:
+        all_projects: "{{ lookup('ansible.controller.controller_api', 'projects', 
+                                 host=controller_hostname, 
+                                 oauth_token=controller_oauthtoken, 
+                                 verify_ssl=controller_validate_certs,
+                                 return_all=true) }}"
+
+    - name: Display Project Information (Single Project)
+      ansible.builtin.debug:
+        msg: "Project: {{ all_projects.name }} | SCM Type: {{ all_projects.scm_type | default('N/A') }} | Organization: {{ all_projects.organization | default('N/A') }} | Description: {{ all_projects.description | default('N/A') }} (ID: {{ all_projects.id }})"
+      when:
+        - all_projects.name is defined
+        - all_projects.id is defined
+
+    - name: Display Project Information (Multiple Projects)
+      ansible.builtin.debug:
+        msg: "Project: {{ item.name }} | SCM Type: {{ item.scm_type | default('manual') }} | SCM URL: {{ item.scm_url | default('N/A') }} | Branch: {{ item.scm_branch | default('N/A') }} | Organization: {{ item.summary_fields.organization.name | default('N/A') }} | Status: {{ item.status | default('N/A') }} (ID: {{ item.id }})"
+      loop: "{{ (all_projects[0] is defined) | ternary(all_projects, []) }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Display total project count
+      ansible.builtin.debug:
+        msg: "Total projects found: {{ all_projects | length }}"
+      when: all_projects is iterable and all_projects is not string
+

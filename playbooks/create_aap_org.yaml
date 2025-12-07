@@ -1,0 +1,42 @@
+---
+- name: Create Organization in AAP
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  
+  vars:
+    # Controller connection details
+    controller_hostname: "https://192.168.122.20"
+    controller_oauthtoken: "EIFnMuewWUVded037eBSNuX4lJlUBX"
+    controller_validate_certs: false
+    
+    # Organization details
+    #org_name: "MyOrganization"
+    #org_description: "This is my organization for AAP"
+    org_max_hosts: 0  # 0 means unlimited
+    # org_default_environment: "Default Execution Environment"  # Optional
+    # org_galaxy_credentials: "Ansible Galaxy"  # Optional - name of galaxy credential
+  
+  tasks:
+    - name: Create organization in AAP
+      ansible.controller.organization:
+        controller_host: "{{ controller_hostname }}"
+        controller_oauthtoken: "{{ controller_oauthtoken }}"
+        validate_certs: "{{ controller_validate_certs }}"
+        name: "{{ org_name }}"
+        description: "{{ (org_description | length > 0) | ternary(org_description, omit) }}"
+        max_hosts: "{{ org_max_hosts }}"
+        default_environment: "{{ (org_default_environment | length > 0) | ternary(org_default_environment, omit) }}"
+        galaxy_credentials: "{{ (org_galaxy_credentials | length > 0) | ternary(org_galaxy_credentials, omit) }}"
+        state: present
+      register: org_result
+      no_log: false
+    
+    - name: Display organization creation result
+      debug:
+        var: org_result
+    
+    - name: Confirm organization was created
+      debug:
+        msg: "Organization '{{ org_name }}' has been successfully created/updated!"
+      when: org_result is changed or org_result is succeeded

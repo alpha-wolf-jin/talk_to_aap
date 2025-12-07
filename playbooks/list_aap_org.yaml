@@ -1,0 +1,34 @@
+---
+- name: List all AAP Organizations
+  hosts: localhost
+  gather_facts: false
+  vars:
+    # Connection details (best practice: store these in Ansible Vault)
+    controller_hostname: "192.168.122.20"
+    controller_username: "admin"
+    controller_password: "redhat"
+    controller_validate_certs: false
+
+  tasks:
+    - name: Retrieve all organizations via API
+      ansible.builtin.set_fact:
+        all_orgs: "{{ lookup('ansible.controller.controller_api', 'organizations', 
+                              host=controller_hostname, 
+                              username=controller_username, 
+                              password=controller_password, 
+                              verify_ssl=controller_validate_certs,
+                              return_all=true) }}"
+
+    - name: Display Organization Names
+      ansible.builtin.debug:
+        msg: "Organization Name: {{ all_orgs.name }} (ID: {{ all_orgs.id }})"
+      when:
+        - all_orgs.name is defined
+        - all_orgs.id   is defined 
+
+    - name: Display Organization Names
+      ansible.builtin.debug:
+        msg: "Organization Name: {{ item.name }} (ID: {{ item.id }})"
+      loop:  "{{ (all_orgs[0] is defined) | ternary(all_orgs, []) }}"
+      loop_control:
+        label: "{{ item.name }}"

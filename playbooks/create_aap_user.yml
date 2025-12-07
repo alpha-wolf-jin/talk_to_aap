@@ -1,0 +1,45 @@
+---
+- name: Create User in AAP
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  
+  vars:
+    # Controller connection details
+    controller_hostname: "https://192.168.122.20"
+    controller_oauthtoken: "EIFnMuewWUVded037eBSNuX4lJlUBX"
+    controller_validate_certs: false
+
+    # User details
+    user_username: "newuser"
+    user_password: "SecurePassword123!"
+    user_email: "newuser@example.com"
+    user_first_name: "John"
+    user_last_name: "Doe"
+    user_organization: "MyOrganization"
+    user_is_superuser: false
+    user_is_system_auditor: false
+    
+  tasks:
+    - name: Create user in AAP
+      ansible.controller.user:
+        controller_host: "{{ controller_hostname }}"
+        controller_oauthtoken: "{{ controller_oauthtoken }}"
+        validate_certs: "{{ controller_validate_certs }}"
+        username: "{{ user_username }}"
+        password: "{{ user_password }}"
+        email: "{{ (user_email | default('') | length > 0) | ternary(user_email, omit) }}"
+        first_name: "{{ (user_first_name | default('') | length > 0) | ternary(user_first_name, omit) }}"
+        last_name: "{{ (user_last_name | default('') | length > 0) | ternary(user_last_name, omit) }}"
+        organization: "{{ (user_organization | default('') | length > 0) | ternary(user_organization, omit) }}"
+        superuser: "{{ user_is_superuser | default(false) }}"
+        auditor: "{{ user_is_system_auditor | default(false) }}"
+        state: present
+      register: user_result
+      no_log: false  # Hide sensitive data (password) in logs
+    
+    - name: Confirm user was created
+      debug:
+        msg: "User '{{ user_username }}' has been successfully created/updated!"
+      when: user_result is changed or user_result is succeeded
+

@@ -1,0 +1,38 @@
+---
+
+- name: List all AAP Inventories
+  hosts: localhost
+  gather_facts: false
+  vars:
+    # Connection details (best practice: store these in Ansible Vault)
+    controller_hostname: "192.168.122.20"
+    controller_oauthtoken: "EIFnMuewWUVded037eBSNuX4lJlUBX"
+    controller_validate_certs: false
+
+  tasks:
+    - name: Retrieve all inventories via API
+      ansible.builtin.set_fact:
+        all_inventories: "{{ lookup('ansible.controller.controller_api', 'inventories', 
+                                    host=controller_hostname, 
+                                    oauth_token=controller_oauthtoken, 
+                                    verify_ssl=controller_validate_certs,
+                                    return_all=true) }}"
+
+    - name: Display Inventory Information (Single Inventory)
+      ansible.builtin.debug:
+        msg: "Inventory: {{ all_inventories.name }} | Organization: {{ all_inventories.organization | default('N/A') }} | Description: {{ all_inventories.description | default('N/A') }} (ID: {{ all_inventories.id }})"
+      when:
+        - all_inventories.name is defined
+        - all_inventories.id is defined
+
+    - name: Display Inventory Information (Multiple Inventories)
+      ansible.builtin.debug:
+        msg: "Inventory: {{ item.name }} | Organization: {{ item.summary_fields.organization.name | default('N/A') }} | Hosts: {{ item.total_hosts | default(0) }} | Groups: {{ item.total_groups | default(0) }} | Description: {{ item.description | default('N/A') }} (ID: {{ item.id }})"
+      loop: "{{ (all_inventories[0] is defined) | ternary(all_inventories, []) }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Display total inventory count
+      ansible.builtin.debug:
+        msg: "Total inventories found: {{ all_inventories | length }}"
+      when: all_inventories is iterable and all_inventories is not string

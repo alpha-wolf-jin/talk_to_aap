@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ansible Automation AI Assistant</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        #chat-container {
+            max-width: 900px;
+            margin: 0 auto;
+            height: 85vh;
+            display: flex;
+            flex-direction: column;
+        }
+        #chat-messages {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        .message {
+            font-family: 'Courier New', Courier, monospace;
+            margin-bottom: 12px;
+            padding: 10px 15px;
+            border-radius: 18px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+        .user-message {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #0d6efd;
+            color: white;
+            margin-left: auto;
+        }
+        .assistant-message {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #e9ecef;
+            margin-right: auto;
+        }
+        .assistant-confirmation {
+            background-color: #fff3cd;
+            margin-right: auto;
+            border-left: 4px solid #ffc107;
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-size: 0.9em;
+        }
+        .tool-call {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #fff3cd;
+            margin-right: auto;
+            border-left: 4px solid #ffc107;
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-size: 0.9em;
+        }
+        .tool-call pre {
+            background-color: #fff3cd;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 8px 0 0 0;
+            border: 1px solid #fdcb6e;
+            overflow-x: auto;
+        }
+        .tool-result {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #d1e7dd;
+            margin-right: auto;
+            border-left: 4px solid #198754;
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-size: 0.9em;
+        }
+        .tool-result pre {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #a3cfbb;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 8px 0 0 0;
+            border: 1px solid #85b89a;
+            overflow-x: auto;
+        }
+        #input-area {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+        #message-input {
+            flex-grow: 1;
+            resize: vertical;
+            min-height: 80px;
+            max-height: 400px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        #send-button {
+            height: 50px;
+            min-width: 100px;
+            font-weight: 600;
+        }
+        .typing-indicator {
+            display: none;
+            margin-bottom: 12px;
+        }
+        #confirmation-buttons {
+            display: none;
+            gap: 10px;
+            margin-top: 10px;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <!-- Header with Red Hat Logo -->
+        <div class="d-flex justify-content-between align-items-center mb-4" style="border-bottom: 2px solid #EE0000; padding-bottom: 15px;">
+            <div class="d-flex align-items-center">
+                <!-- Red Hat Logo -->
+                <img src="/static/Red-Hat.png" alt="Red Hat" style="height: 45px; margin-right: 15px;">
+                <div>
+                    <h2 class="mb-0" style="color: #333;">Ansible Automation AI Assistant</h2>
+                    <small style="color: #666;">Red Hat Ansible Automation Platform</small>
+                </div>
+            </div>
+            <div>
+                <span class="me-3">Welcome, <strong id="username-display">User</strong></span>
+                <button class="btn btn-sm btn-outline-danger" onclick="logout()">Logout</button>
+            </div>
+        </div>
+        
+        <div id="chat-container">
+            <div id="chat-messages"></div>
+            
+            <div class="typing-indicator" id="typing-indicator">
+                <div class="message assistant-message">Assistant is typing...</div>
+            </div>
+            
+            <div id="regular-input">
+                <div id="input-area" class="mt-2">
+                    <textarea id="message-input" class="form-control" placeholder="Type your message... (Press Enter for new line, click Send to submit)" rows="4"></textarea>
+                    <button id="send-button" class="btn btn-primary">Send</button>
+                </div>
+            </div>
+            
+            <div id="confirmation-buttons">
+                <button class="btn btn-success" onclick="handleConfirmation('yes')">Yes</button>
+                <button class="btn btn-danger" onclick="handleConfirmation('no')">No</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize WebSocket connection
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+        
+        // DOM elements
+        const chatMessages = document.getElementById('chat-messages');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        const typingIndicator = document.getElementById('typing-indicator');
+        const regularInput = document.getElementById('regular-input');
+        const confirmationButtons = document.getElementById('confirmation-buttons');
+        
+        // State variables
+        let pendingConfirmationId = null;
+
+        // Event listeners
+        sendButton.addEventListener('click', sendMessage);
+        // Note: Enter key now creates new lines naturally
+        // Only the Send button submits the message
+
+        // WebSocket event handlers
+        ws.onopen = () => {
+            console.log('WebSocket connection established');
+            addMessage('I am Ansible AI assistant. What can I help?', 'assistant_message');
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                typingIndicator.style.display = 'none';
+                
+                switch(data.type) {
+                    case 'assistant_message':
+                        addMessage(data.content, 'assistant_message');
+                        break;
+                    case 'tool_call':
+                        addMessage(data.args, 'tool_call', data.name);
+                        break;
+                    case 'tool_result':
+                        addMessage(data.result, 'tool_result');
+                        break;
+                    case 'confirmation_request':
+                        addMessage(data.content, 'assistant_message');
+                        pendingConfirmationId = data.message_id;
+                        
+                        // Show confirmation buttons
+                        regularInput.style.display = 'none';
+                        confirmationButtons.style.display = 'flex';
+                        break;
+                    case 'error':
+                        addMessage(`Error: ${data.content}`, 'assistant_message');
+                        break;
+                    default:
+                        console.log('Unknown message type:', data.type);
+                }
+            } catch (error) {
+                console.error('Error parsing message:', error, event.data);
+                addMessage('Received an invalid message from the server', 'assistant_message');
+            }
+        };
+
+        ws.onclose = () => {
+            addMessage("Connection closed. Please refresh the page.", 'assistant_message');
+        };
+
+        ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+            addMessage("WebSocket connection error. Please refresh the page.", 'assistant_message');
+        };
+
+        // Function to send a message
+        function sendMessage() {
+            const message = messageInput.value.trim();
+            if (message && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: "user_message",
+                    content: message
+                }));
+                addMessage(message, 'user_message');
+                messageInput.value = "";
+            }
+        }
+
+        // Function to handle confirmation responses
+        function handleConfirmation(response) {
+            if (pendingConfirmationId && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: "confirmation_response",
+                    message_id: pendingConfirmationId,
+                    content: response
+                }));
+                
+                // Add the response to the chat
+                addMessage(response, 'user_message');
+                
+                // Reset state and UI
+                pendingConfirmationId = null;
+                regularInput.style.display = 'block';
+                confirmationButtons.style.display = 'none';
+            }
+        }
+
+        // Function to add a message to the chat
+        function addMessage(content, type, toolName = null) {
+            const messageDiv = document.createElement('div');
+            
+            switch(type) {
+                case 'user_message':
+                    messageDiv.classList.add('message', 'user-message');
+                    // Preserve whitespace and newlines
+                    messageDiv.innerHTML = content
+                        .replace(/</g, '&lt;')
+                        .replace(/ /g, '&nbsp;') // Replace spaces with non-breaking spaces
+                        .replace(/>/g, '&gt;')
+                        .replace(/\n/g, '<br>');
+                    break;
+                case 'assistant_message':
+                    messageDiv.classList.add('message', 'assistant-message');
+                    messageDiv.innerHTML = content
+                        .replace(/</g, '&lt;')
+                        .replace(/ /g, '&nbsp;') // Replace spaces with non-breaking spaces
+                        .replace(/>/g, '&gt;')
+                        .replace(/\n/g, '<br>');
+                    break;
+                case 'tool_call':
+                    messageDiv.classList.add('tool-call');
+                    messageDiv.innerHTML = `
+                        <strong>Calling tool:</strong> ${toolName}<br>
+                        <strong>Arguments:</strong> <pre>${JSON.stringify(content, null, 2)}</pre>
+                    `;
+                    break;
+                case 'tool_result':
+                    messageDiv.classList.add('tool-result');
+                    const resultContent = typeof content === 'object' ? JSON.stringify(content, null, 2) : content;
+                    messageDiv.innerHTML = resultContent
+                        .replace(/</g, '&lt;')
+                        .replace(/ /g, '&nbsp;') // Replace spaces with non-breaking spaces
+                        .replace(/>/g, '&gt;')
+                        .replace(/\\n/g, '<br>')
+                        .replace(/\n/g, '<br>')
+			.replace(/\\\\/g, '')
+			.replace(/\\/g, '');
+                    break;
+            }
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Focus input on page load
+        window.onload = () => {
+            messageInput.focus();
+            
+            // Check if username is provided in template (optional)
+            const username = "{{ username if username else '' }}";
+            if (username) {
+                document.getElementById('username-display').textContent = username;
+            }
+        };
+
+        // Logout function
+        function logout() {
+            // Clear the auth cookie
+            document.cookie = 'auth_token=; path=/; max-age=0';
+            // Redirect to login page
+            window.location.href = '/';
+        }
+
+        // Check authentication on page load
+        function checkAuth() {
+            const cookies = document.cookie.split(';');
+            let hasAuthToken = false;
+            for (let cookie of cookies) {
+                if (cookie.trim().startsWith('auth_token=')) {
+                    hasAuthToken = true;
+                    break;
+                }
+            }
+            if (!hasAuthToken) {
+                window.location.href = '/';
+            }
+        }
+        
+        // Check auth immediately
+        checkAuth();
+    </script>
+</body>
+</html>

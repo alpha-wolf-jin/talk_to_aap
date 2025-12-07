@@ -1,0 +1,66 @@
+---
+
+- name: Create Job Template in AAP
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    # Controller connection details
+    controller_hostname: "https://192.168.122.20"
+    controller_oauthtoken: "EIFnMuewWUVded037eBSNuX4lJlUBX"
+    controller_validate_certs: false
+
+    # Job Template details
+    job_template_name: "My Job Template"
+    job_template_description: "Job template for running playbooks"
+    job_template_job_type: "run"  # Options: run, check
+    job_template_inventory: "My Inventory"
+    job_template_project: "My Ansible Project"
+    job_template_playbook: "hello_world.yml"  # Path to playbook in the project
+    job_template_credentials: []  # List of credential names, e.g., ["My Machine Credential"]
+    job_template_verbosity: 0  # 0=Normal, 1=Verbose, 2=More Verbose, 3=Debug, 4=Connection Debug
+    job_template_limit: ""  # Optional: limit hosts
+    job_template_extra_vars: ""  # Optional: extra variables in YAML or JSON
+    job_template_tags: ""  # Optional: run specific tags
+    job_template_skip_tags: ""  # Optional: skip specific tags
+    job_template_ask_variables_on_launch: false
+    job_template_ask_limit_on_launch: false
+    job_template_ask_tags_on_launch: false
+    job_template_ask_skip_tags_on_launch: false
+    job_template_ask_inventory_on_launch: false
+    job_template_ask_credential_on_launch: false
+
+  tasks:
+    - name: Create job template in AAP
+      ansible.controller.job_template:
+        controller_host: "{{ controller_hostname }}"
+        controller_oauthtoken: "{{ controller_oauthtoken }}"
+        validate_certs: "{{ controller_validate_certs }}"
+        name: "{{ job_template_name }}"
+        description: "{{ (job_template_description | default('') | length > 0) | ternary(job_template_description, omit) }}"
+        job_type: "{{ job_template_job_type }}"
+        inventory: "{{ job_template_inventory }}"
+        project: "{{ job_template_project }}"
+        playbook: "{{ job_template_playbook }}"
+        credentials: "{{ (job_template_credentials | default([]) | length > 0) | ternary(job_template_credentials, omit) }}"
+        verbosity: "{{ job_template_verbosity | default(0) }}"
+        limit: "{{ (job_template_limit | default('') | length > 0) | ternary(job_template_limit, omit) }}"
+        extra_vars: "{{ (job_template_extra_vars | default('') | length > 0) | ternary(job_template_extra_vars, omit) }}"
+        job_tags: "{{ (job_template_tags | default('') | length > 0) | ternary(job_template_tags, omit) }}"
+        skip_tags: "{{ (job_template_skip_tags | default('') | length > 0) | ternary(job_template_skip_tags, omit) }}"
+        ask_variables_on_launch: "{{ job_template_ask_variables_on_launch | default(false) }}"
+        ask_limit_on_launch: "{{ job_template_ask_limit_on_launch | default(false) }}"
+        ask_tags_on_launch: "{{ job_template_ask_tags_on_launch | default(false) }}"
+        ask_skip_tags_on_launch: "{{ job_template_ask_skip_tags_on_launch | default(false) }}"
+        ask_inventory_on_launch: "{{ job_template_ask_inventory_on_launch | default(false) }}"
+        ask_credential_on_launch: "{{ job_template_ask_credential_on_launch | default(false) }}"
+        state: present
+      register: job_template_result
+      no_log: false  # Set to true to hide sensitive data in logs
+
+    - name: Confirm job template was created
+      debug:
+        msg: "Job Template '{{ job_template_name }}' has been successfully created/updated!"
+      when: job_template_result is changed or job_template_result is succeeded
+

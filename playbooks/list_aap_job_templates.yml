@@ -1,0 +1,39 @@
+---
+
+- name: List all AAP Job Templates
+  hosts: localhost
+  gather_facts: false
+  vars:
+    # Connection details (best practice: store these in Ansible Vault)
+    controller_hostname: "192.168.122.20"
+    controller_oauthtoken: "EIFnMuewWUVded037eBSNuX4lJlUBX"
+    controller_validate_certs: false
+
+  tasks:
+    - name: Retrieve all job templates via API
+      ansible.builtin.set_fact:
+        all_job_templates: "{{ lookup('ansible.controller.controller_api', 'job_templates', 
+                                      host=controller_hostname, 
+                                      oauth_token=controller_oauthtoken, 
+                                      verify_ssl=controller_validate_certs,
+                                      return_all=true) }}"
+
+    - name: Display Job Template Information (Single Job Template)
+      ansible.builtin.debug:
+        msg: "Job Template: {{ all_job_templates.name }} | Type: {{ all_job_templates.job_type | default('N/A') }} | Inventory: {{ all_job_templates.inventory | default('N/A') }} | Project: {{ all_job_templates.project | default('N/A') }} | Playbook: {{ all_job_templates.playbook | default('N/A') }} (ID: {{ all_job_templates.id }})"
+      when:
+        - all_job_templates.name is defined
+        - all_job_templates.id is defined
+
+    - name: Display Job Template Information (Multiple Job Templates)
+      ansible.builtin.debug:
+        msg: "Job Template: {{ item.name }} | Type: {{ item.job_type | default('run') }} | Inventory: {{ item.summary_fields.inventory.name | default('N/A') }} | Project: {{ item.summary_fields.project.name | default('N/A') }} | Playbook: {{ item.playbook | default('N/A') }} | Description: {{ item.description | default('N/A') }} (ID: {{ item.id }})"
+      loop: "{{ (all_job_templates[0] is defined) | ternary(all_job_templates, []) }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Display total job template count
+      ansible.builtin.debug:
+        msg: "Total job templates found: {{ all_job_templates | length }}"
+      when: all_job_templates is iterable and all_job_templates is not string
+

@@ -1,0 +1,37 @@
+---
+- name: List all AAP Users
+  hosts: localhost
+  gather_facts: false
+  vars:
+    # Connection details (best practice: store these in Ansible Vault)
+    controller_hostname: "192.168.122.20"
+    controller_oauthtoken: "EIFnMuewWUVded037eBSNuX4lJlUBX"
+    controller_validate_certs: false
+
+  tasks:
+    - name: Retrieve all users via API
+      ansible.builtin.set_fact:
+        all_users: "{{ lookup('ansible.controller.controller_api', 'users', 
+                              host=controller_hostname, 
+                              oauth_token=controller_oauthtoken, 
+                              verify_ssl=controller_validate_certs,
+                              return_all=true) }}"
+
+    - name: Display User Information (Single User)
+      ansible.builtin.debug:
+        msg: "Username: {{ all_users.username }} | Email: {{ all_users.email }} | Name: {{ all_users.first_name }} {{ all_users.last_name }} (ID: {{ all_users.id }})"
+      when:
+        - all_users.username is defined
+        - all_users.id is defined
+
+    - name: Display User Information (Multiple Users)
+      ansible.builtin.debug:
+        msg: "Username: {{ item.username }} | Email: {{ item.email | default('N/A') }} | Name: {{ item.first_name | default('') }} {{ item.last_name | default('') }} | Superuser: {{ item.is_superuser | default(false) }} | Auditor: {{ item.is_system_auditor | default(false) }} (ID: {{ item.id }})"
+      loop: "{{ (all_users[0] is defined) | ternary(all_users, []) }}"
+      loop_control:
+        label: "{{ item.username }}"
+
+    - name: Display total user count
+      ansible.builtin.debug:
+        msg: "Total users found: {{ all_users | length }}"
+      when: all_users is iterable and all_users is not string
